@@ -5,15 +5,18 @@
 import streamlit as st
 import pandas as pd
 from datetime import date, timedelta
+import plotly.express as px
 
 st.set_page_config(page_title="Electricity-usage visualiser", layout="wide")
-st.title("⚡ Electricity-usage visualiser")
+st.title("⚡ Electricity-usage visualiser, base written by GPT-o3")
 
 MODE = st.radio(
     "Choose a view:",
-    ["100-day window (single file)", "Compare one day across multiple files"],
+    ["100-day window (single file)", "Compare one day across multiple files", "Heatmap"],
     horizontal=True,
 )
+
+default_file_path = "electricity/94a4157616804ae51743754974.csv"
 
 # ────────────────────────────────────────────────
 # Common helper functions
@@ -54,41 +57,46 @@ if MODE == "100-day window (single file)":
     file = st.file_uploader(
         "Upload a CSV (semicolon-separated, decimal comma)", type=["csv"]
     )
+    if not file:
+        st.info("Using default CSV.")
+
     if file:
         hourly = parse_hourly(file)
-        daily = hourly_to_daily(hourly)
-
-        st.success(
-            f"Loaded **{len(daily)} days** "
-            f"({daily['date'].iloc[0]} → {daily['date'].iloc[-1]})."
-        )
-
-        WINDOW = 100
-        min_day = daily["date"].min()
-        max_day = daily["date"].max() - timedelta(days=WINDOW - 1)
-
-        start_day = st.date_input(
-            "First day of the 100-day window",
-            value=min_day,
-            min_value=min_day,
-            max_value=max_day,
-        )
-
-        end_day = start_day + timedelta(days=WINDOW - 1)
-        window_df = daily[(daily["date"] >= start_day) & (daily["date"] <= end_day)]
-
-        st.subheader(f"Daily kWh  —  {start_day} → {end_day}")
-        st.line_chart(window_df.set_index("date")["daily_kwh"], height=450)
-
-        with st.expander("Show daily table"):
-            st.dataframe(window_df, hide_index=True, use_container_width=True)
     else:
-        st.info("👈 Upload a CSV file to get started.")
+        hourly = parse_hourly(default_file_path)
+
+    daily = hourly_to_daily(hourly)
+
+    st.success(
+        f"Loaded **{len(daily)} days** "
+        f"({daily['date'].iloc[0]} → {daily['date'].iloc[-1]})."
+    )
+
+    WINDOW = 100
+    min_day = daily["date"].min()
+    max_day = daily["date"].max() - timedelta(days=WINDOW - 1)
+
+    start_day = st.date_input(
+        "First day of the 100-day window",
+        value=min_day,
+        min_value=min_day,
+        max_value=max_day,
+    )
+
+    end_day = start_day + timedelta(days=WINDOW - 1)
+    window_df = daily[(daily["date"] >= start_day) & (daily["date"] <= end_day)]
+
+    st.subheader(f"Daily kWh  —  {start_day} → {end_day}")
+    st.line_chart(window_df.set_index("date")["daily_kwh"], height=450)
+
+    with st.expander("Show daily table"):
+        st.dataframe(window_df, hide_index=True, use_container_width=True)
+
 
 # ────────────────────────────────────────────────
 # MODE 2  –  Same-day comparison across files
 # ────────────────────────────────────────────────
-else:
+elif MODE == "Compare one day across multiple files":
     files = st.file_uploader(
         "Upload **one or more** CSV files (semicolon-separated, decimal comma)",
         type=["csv"],
@@ -140,3 +148,40 @@ else:
                 )
     else:
         st.info("👈 Upload at least one CSV file to get started.")
+
+# ────────────────────────────────────────────
+# Mode 3 - Total usage heatmap
+# ────────────────────────────────────────────
+
+elif MODE == "Heatmap":
+    file = st.file_uploader(
+        "Upload a CSV (semicolon-separated, decimal comma)", type=["csv"]
+    )
+    if not file:
+        st.info("Using default CSV.")
+
+    if file:
+        hourly = parse_hourly(file)
+    else:
+        hourly = parse_hourly(default_file_path)
+
+    daily = hourly_to_daily(hourly)
+
+    st.success(
+        f"Loaded **{len(daily)} days** "
+        f"({daily['date'].iloc[0]} → {daily['date'].iloc[-1]})."
+    )
+
+    min_day = daily["date"].min()
+    max_day = daily["date"].max()
+
+    window_df = daily
+    window_df.index = daily["date"]
+
+    fig = px.density_heatmap(window_df["daily_kwh"], nbinsx=300, nbinsy=20, color_continuous_scale=["blue", "lightblue", "yellow", "orange", "red"])
+
+    st.subheader(f"Heatmap of energy usage")
+    st.plotly_chart(fig, height=500)
+
+    with st.expander("Show daily table"):
+        st.dataframe(window_df, hide_index=True, use_container_width=True)
