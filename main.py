@@ -7,13 +7,14 @@ import pandas as pd
 from datetime import date, timedelta
 import plotly.express as px
 import random
+import plotly.graph_objs as go
 
 st.set_page_config(page_title="Electricity-usage visualiser", layout="wide")
 st.title("⚡ Electricity-usage visualiser, base written by GPT-o3")
 
 MODE = st.radio(
     "Choose a view:",
-    ["100-day window (single file)", "Compare one day across multiple files", "Heatmap"],
+    ["100-day window (single file)", "Compare one day across multiple files", "Heatmap", "Error bands"],
     horizontal=True,
 )
 
@@ -47,6 +48,20 @@ def hourly_to_daily(hourly_df) -> pd.DataFrame:
         .sum()
         .rename(columns={"kwh": "daily_kwh"})
     )
+
+@st.cache_data(show_spinner=False)
+def daily_to_weekly(daily_df) -> pd.DataFrame:
+    # for simplicity assuming that first day of the week is monday (i.e. not real weeks but rather 7day periods)
+    output_df = pd.DataFrame(['date', 'weekly_kwh_avg', 'min', 'max'])
+    for i in range(0, len(daily_df) // 7):
+        date = daily_df.iloc[i * 7]["date"]
+        sum_weekly = sum(daily_df.iloc[i * 7:(i + 1) * 7]["daily_kwh"])
+        output_df.at[i, "date"] = date
+        output_df.at[i, "weekly_kwh_avg"] = round(sum_weekly / 7, 2)
+        output_df.at[i, "min"] = float(min(daily_df.iloc[i * 7:(i + 1) * 7]["daily_kwh"]))
+        output_df.at[i, "max"] = float(max(daily_df.iloc[i * 7:(i + 1) * 7]["daily_kwh"]))
+
+    return output_df
 
 path = "/electricity/.csv"
 
@@ -195,3 +210,65 @@ elif MODE == "Heatmap":
 # ────────────────────────────────────────────
 # Mode 4 - Error bands
 # ────────────────────────────────────────────
+
+elif MODE == "Error bands":
+    file = st.file_uploader(
+        "Upload a CSV (semicolon-separated, decimal comma)", type=["csv"]
+    )
+    if not file:
+        st.info(f"Using default CSV with hash {default_file_path}.")
+
+    if file:
+        hourly = parse_hourly(file)
+    else:
+        hourly = parse_hourly(f"electricity/{default_file_path}.csv")
+
+    daily = hourly_to_daily(hourly)
+    weekly = daily_to_weekly(daily)
+
+    st.success(
+        f"Loaded **{len(daily)} days** "
+        f"({daily['date'].iloc[0]} → {daily['date'].iloc[-1]})."
+    )
+
+    window_df = weekly
+    window_df.index = weekly["date"]
+
+    x = window_df["date"]
+    y = window_df["weekly_kwh_avg"]
+    y_upper = window_df["max"]
+    y_lower = window_df["min"]
+
+    fig = go.Figure([
+        go.Scatter(
+            x=x,
+            y=y,
+            mode='lines',
+            name='Weekly average'
+        ),
+        go.Scatter(
+            name='Upper Bound',
+            x=x,
+            y=y_upper,
+            mode='lines',
+            marker=dict(color="#444"),
+            line=dict(width=0),
+            showlegend=False
+        ),
+        go.Scatter(
+            name='Lower Bound',
+            x=x,
+            y=y_lower,
+            marker=dict(color="#444"),
+            line=dict(width=0),
+            mode='lines',
+            fillcolor='rgba(68, 68, 68, 0.6)',
+            fill='tonexty',
+            showlegend=False
+        )
+    ])
+    st.subheader(f"Line chart with  of energy usage with error bands")
+    st.plotly_chart(fig, height=500)
+
+    with st.expander("Show weekly table"):
+        st.dataframe(window_df, hide_index=True, use_container_width=True)
