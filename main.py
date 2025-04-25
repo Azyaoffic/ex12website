@@ -6,6 +6,7 @@ import streamlit as st
 import pandas as pd
 from datetime import date, timedelta
 import plotly.express as px
+import random
 
 st.set_page_config(page_title="Electricity-usage visualiser", layout="wide")
 st.title("⚡ Electricity-usage visualiser, base written by GPT-o3")
@@ -15,8 +16,6 @@ MODE = st.radio(
     ["100-day window (single file)", "Compare one day across multiple files", "Heatmap"],
     horizontal=True,
 )
-
-default_file_path = "electricity/94a4157616804ae51743754974.csv"
 
 # ────────────────────────────────────────────────
 # Common helper functions
@@ -49,6 +48,12 @@ def hourly_to_daily(hourly_df) -> pd.DataFrame:
         .rename(columns={"kwh": "daily_kwh"})
     )
 
+path = "/electricity/.csv"
+
+default_file_hashes = ["9e9dca492a061e211740838882", "94a4157616804ae51743754974", "c2a91e3d7222f6d51743069686", "c550bcace2429c281741504217", "ed9f4fcf0bfb1afa1741424674", "fe2b07c1f38b5cb91743699228"]
+default_file_path = random.choice(default_file_hashes)
+default_multiple_files_paths = {csv_file_name: parse_hourly("electricity/" + csv_file_name + ".csv") for csv_file_name in default_file_hashes}
+
 
 # ────────────────────────────────────────────────
 # MODE 1  –  100-day rolling window (single file)
@@ -58,12 +63,12 @@ if MODE == "100-day window (single file)":
         "Upload a CSV (semicolon-separated, decimal comma)", type=["csv"]
     )
     if not file:
-        st.info("Using default CSV.")
+        st.info(f"Using default CSV with hash {default_file_path}.")
 
     if file:
         hourly = parse_hourly(file)
     else:
-        hourly = parse_hourly(default_file_path)
+        hourly = parse_hourly(f"electricity/{default_file_path}.csv")
 
     daily = hourly_to_daily(hourly)
 
@@ -158,12 +163,12 @@ elif MODE == "Heatmap":
         "Upload a CSV (semicolon-separated, decimal comma)", type=["csv"]
     )
     if not file:
-        st.info("Using default CSV.")
+        st.info(f"Using default CSV with hash {default_file_path}.")
 
     if file:
         hourly = parse_hourly(file)
     else:
-        hourly = parse_hourly(default_file_path)
+        hourly = parse_hourly(f"electricity/{default_file_path}.csv")
 
     daily = hourly_to_daily(hourly)
 
