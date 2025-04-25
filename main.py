@@ -4,19 +4,21 @@
 
 import streamlit as st
 import pandas as pd
-from datetime import date, timedelta
+from datetime import timedelta
 import plotly.express as px
 import random
 import plotly.graph_objs as go
 
 st.set_page_config(page_title="Electricity-usage visualiser", layout="wide")
-st.title("⚡ Electricity-usage visualiser, base written by GPT-o3")
+st.title("⚡ Electricity-usage visualiser, written using Streamlit")
+st.subheader("Initially created using GPT-o3 model, expanded without it by vidovb")
 
 MODE = st.radio(
     "Choose a view:",
     ["100-day window (single file)", "Compare one day across multiple files", "Heatmap", "Error bands"],
     horizontal=True,
 )
+
 
 # ────────────────────────────────────────────────
 # Common helper functions
@@ -49,6 +51,7 @@ def hourly_to_daily(hourly_df) -> pd.DataFrame:
         .rename(columns={"kwh": "daily_kwh"})
     )
 
+
 @st.cache_data(show_spinner=False)
 def daily_to_weekly(daily_df) -> pd.DataFrame:
     # for simplicity assuming that first day of the week is monday (i.e. not real weeks but rather 7day periods)
@@ -63,12 +66,14 @@ def daily_to_weekly(daily_df) -> pd.DataFrame:
 
     return output_df
 
+
 path = "/electricity/.csv"
 
-default_file_hashes = ["9e9dca492a061e211740838882", "94a4157616804ae51743754974", "c2a91e3d7222f6d51743069686", "c550bcace2429c281741504217", "ed9f4fcf0bfb1afa1741424674", "fe2b07c1f38b5cb91743699228"]
+default_file_hashes = ["9e9dca492a061e211740838882", "94a4157616804ae51743754974", "c2a91e3d7222f6d51743069686",
+                       "c550bcace2429c281741504217", "ed9f4fcf0bfb1afa1741424674", "fe2b07c1f38b5cb91743699228"]
 default_file_path = random.choice(default_file_hashes)
-default_multiple_files_paths = {csv_file_name: parse_hourly("electricity/" + csv_file_name + ".csv") for csv_file_name in default_file_hashes}
-
+default_multiple_files_paths = {csv_file_name: parse_hourly("electricity/" + csv_file_name + ".csv") for csv_file_name
+                                in default_file_hashes}
 
 # ────────────────────────────────────────────────
 # MODE 1  –  100-day rolling window (single file)
@@ -198,7 +203,8 @@ elif MODE == "Heatmap":
     window_df = daily
     window_df.index = daily["date"]
 
-    fig = px.density_heatmap(window_df["daily_kwh"], y="daily_kwh", nbinsx=300, nbinsy=20, color_continuous_scale=["blue", "lightblue", "yellow", "orange", "red"])
+    fig = px.density_heatmap(window_df["daily_kwh"], y="daily_kwh", nbinsx=300, nbinsy=20,
+                             color_continuous_scale=["blue", "lightblue", "yellow", "orange", "red"])
 
     st.subheader(f"Heatmap of energy usage")
     st.plotly_chart(fig, height=500)
