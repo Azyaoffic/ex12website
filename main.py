@@ -109,50 +109,50 @@ elif MODE == "Compare one day across multiple files":
     )
 
     if files:
-        # Parse every file → hourly DataFrame, store in dict keyed by name
         hourly_dict = {f.name: parse_hourly(f) for f in files}
-
-        # Determine the union of available dates
-        all_dates = set()
-        for df in hourly_dict.values():
-            all_dates |= set(df["timestamp"].dt.date.unique())
-        date_choice = st.date_input(
-            "Pick a calendar date to compare",
-            value=min(all_dates),
-            min_value=min(all_dates),
-            max_value=max(all_dates),
-        )
-
-        # Build a DataFrame with rows = hour 0-23, columns = file names
-        hour_index = pd.Index(range(24), name="hour")
-        comparison_df = pd.DataFrame(index=hour_index)
-
-        for name, df in hourly_dict.items():
-            day_slice = df[df["timestamp"].dt.date == date_choice]
-            if day_slice.empty:
-                st.warning(f"⚠️  {name} has **no data** for {date_choice}")
-                continue
-            # Ensure exactly 24 hours (some meters omit zeros)
-            day_slice = (
-                day_slice.set_index(day_slice["timestamp"].dt.hour)["kwh"]
-                .reindex(hour_index, fill_value=0.0)
-            )
-            comparison_df[name] = day_slice
-
-        if comparison_df.empty:
-            st.error("No datasets contained that date.")
-        else:
-            st.subheader(f"Hourly kWh on {date_choice} (all files)")
-            st.line_chart(comparison_df, height=450)
-
-            with st.expander("Show hourly table"):
-                st.dataframe(
-                    comparison_df.reset_index()
-                    .rename(columns={"hour": "Hour (0-23)"}),
-                    use_container_width=True,
-                )
     else:
-        st.info("👈 Upload at least one CSV file to get started.")
+        hourly_dict = default_multiple_files_paths
+
+    # Determine the union of available dates
+    all_dates = set()
+    for df in hourly_dict.values():
+        all_dates |= set(df["timestamp"].dt.date.unique())
+    date_choice = st.date_input(
+        "Pick a calendar date to compare",
+        value=min(all_dates),
+        min_value=min(all_dates),
+        max_value=max(all_dates),
+    )
+
+    # Build a DataFrame with rows = hour 0-23, columns = file names
+    hour_index = pd.Index(range(24), name="hour")
+    comparison_df = pd.DataFrame(index=hour_index)
+
+    for name, df in hourly_dict.items():
+        day_slice = df[df["timestamp"].dt.date == date_choice]
+        if day_slice.empty:
+            st.warning(f"⚠️  {name} has **no data** for {date_choice}")
+            continue
+        # Ensure exactly 24 hours (some meters omit zeros)
+        day_slice = (
+            day_slice.set_index(day_slice["timestamp"].dt.hour)["kwh"]
+            .reindex(hour_index, fill_value=0.0)
+        )
+        comparison_df[name] = day_slice
+
+    if comparison_df.empty:
+        st.error("No datasets contained that date.")
+    else:
+        st.subheader(f"Hourly kWh on {date_choice} (all files)")
+        st.line_chart(comparison_df, height=450)
+
+        with st.expander("Show hourly table"):
+            st.dataframe(
+                comparison_df.reset_index()
+                .rename(columns={"hour": "Hour (0-23)"}),
+                use_container_width=True,
+            )
+
 
 # ────────────────────────────────────────────
 # Mode 3 - Total usage heatmap
@@ -183,10 +183,15 @@ elif MODE == "Heatmap":
     window_df = daily
     window_df.index = daily["date"]
 
-    fig = px.density_heatmap(window_df["daily_kwh"], nbinsx=300, nbinsy=20, color_continuous_scale=["blue", "lightblue", "yellow", "orange", "red"])
+    fig = px.density_heatmap(window_df["daily_kwh"], y="daily_kwh", nbinsx=300, nbinsy=20, color_continuous_scale=["blue", "lightblue", "yellow", "orange", "red"])
 
     st.subheader(f"Heatmap of energy usage")
     st.plotly_chart(fig, height=500)
 
     with st.expander("Show daily table"):
         st.dataframe(window_df, hide_index=True, use_container_width=True)
+
+
+# ────────────────────────────────────────────
+# Mode 4 - Error bands
+# ────────────────────────────────────────────
