@@ -13,9 +13,16 @@ st.set_page_config(page_title="Electricity-usage visualiser", layout="wide")
 st.title("⚡ Electricity-usage visualiser, written using Streamlit")
 st.subheader("Initially created using GPT-o3 model, expanded without it by vidovb")
 
+buttons = [
+    "100-day window (single file)",
+    "Compare one day across multiple files",
+    "Heatmap (all days)",
+    "Min-max bands (weekly average)"
+]
+
 MODE = st.radio(
     "Choose a view:",
-    ["100-day window (single file)", "Compare one day across multiple files", "Heatmap", "Error bands"],
+    buttons,
     horizontal=True,
 )
 
@@ -178,7 +185,7 @@ elif MODE == "Compare one day across multiple files":
 # Mode 3 - Total usage heatmap
 # ────────────────────────────────────────────
 
-elif MODE == "Heatmap":
+elif MODE == "Heatmap (all days)":
     file = st.file_uploader(
         "Upload a CSV (semicolon-separated, decimal comma)", type=["csv"]
     )
@@ -217,7 +224,7 @@ elif MODE == "Heatmap":
 # Mode 4 - Error bands
 # ────────────────────────────────────────────
 
-elif MODE == "Error bands":
+elif MODE == "Min-max bands (weekly average)":
     file = st.file_uploader(
         "Upload a CSV (semicolon-separated, decimal comma)", type=["csv"]
     )
